@@ -85,9 +85,9 @@ const TREES = [{"id": 1, "district": "鶯歌區", "species": "榕樹", "sci_name
 const DISTRICT_COLORS = {"三峽區": "#d83636", "三芝區": "#d85736", "三重區": "#d87936", "中和區": "#d89b36", "五股區": "#d8bc36", "八里區": "#d3d836", "土城區": "#b1d836", "坪林區": "#8fd836", "平溪區": "#6ed836", "新店區": "#4cd836", "新莊區": "#36d841", "板橋區": "#36d863", "林口區": "#36d884", "樹林區": "#36d8a6", "永和區": "#36d8c7", "汐止區": "#36c7d8", "泰山區": "#36a6d8", "淡水區": "#3684d8", "深坑區": "#3663d8", "烏來區": "#3641d8", "瑞芳區": "#4c36d8", "石碇區": "#6e36d8", "石門區": "#8f36d8", "萬里區": "#b136d8", "蘆洲區": "#d336d8", "貢寮區": "#d836bc", "金山區": "#d8369b", "雙溪區": "#d83679", "鶯歌區": "#d83657"};
 
 const map = L.map('map').setView([24.97, 121.45], 11);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  subdomains: 'abcd', maxZoom: 19
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">內政部國土測繪中心</a>',
+  maxZoom: 20
 }).addTo(map);
 
 // 填入篩選選單
