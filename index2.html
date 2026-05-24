@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台北市松山區受保護樹木地圖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Microsoft JhengHei', Arial, sans-serif; background: #1a2332; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+  #header { background: linear-gradient(135deg, #1e3a2f 0%, #2d5a40 100%); padding: 12px 20px; display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #4CAF50; flex-shrink: 0; }
+  #header h1 { font-size: 20px; color: #7dce82; letter-spacing: 1px; }
+  #header .count { background: #4CAF50; color: white; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: bold; }
+  #header .source { font-size: 11px; color: #5a8a65; margin-left: auto; }
+  #controls { background: #1e2d3d; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #2c3e50; flex-shrink: 0; }
+  .ctrl-group { display: flex; align-items: center; gap: 6px; }
+  .ctrl-label { font-size: 12px; color: #8899aa; white-space: nowrap; }
+  select { background: #253545; color: #dde; border: 1px solid #3a5070; border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+  select:hover { border-color: #4CAF50; }
+  #search { background: #253545; color: #dde; border: 1px solid #3a5070; border-radius: 6px; padding: 5px 10px; font-size: 13px; width: 150px; }
+  #search::placeholder { color: #556677; }
+  #search:focus { outline: none; border-color: #4CAF50; }
+  #map { flex: 1; }
+  #stats { background: #1e2d3d; padding: 6px 16px; font-size: 12px; color: #7899aa; display: flex; gap: 20px; flex-shrink: 0; border-top: 1px solid #2c3e50; }
+  .leaflet-popup-content-wrapper { background: #1e2d3d; color: #dde; border: 1px solid #4CAF50; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .leaflet-popup-tip { background: #1e2d3d; }
+  .leaflet-popup-content { margin: 14px 18px; min-width: 230px; max-width: 320px; }
+  .popup-title { font-size: 16px; font-weight: bold; color: #7dce82; margin-bottom: 6px; }
+  .popup-code { font-size: 11px; color: #667788; margin-bottom: 6px; }
+  .popup-sci { font-style: italic; color: #aabbcc; font-size: 12px; margin-bottom: 8px; }
+  .popup-row { display: flex; gap: 10px; margin: 4px 0; font-size: 13px; }
+  .popup-key { color: #8899aa; flex-shrink: 0; min-width: 52px; }
+  .popup-val { color: #ccddee; font-weight: 500; }
+  .popup-desc { margin-top: 8px; padding-top: 8px; border-top: 1px solid #2c3e50; font-size: 12px; color: #9aabbc; line-height: 1.5; max-height: 80px; overflow-y: auto; }
+  .popup-links { display: flex; gap: 8px; margin-top: 10px; }
+  .popup-gmaps { display: inline-block; background: #4CAF50; color: white; padding: 4px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; }
+  .popup-gmaps:hover { background: #66bb6a; }
+  .popup-info { display: inline-block; background: #2a4a6a; color: #7db8e8; padding: 4px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; border: 1px solid #3a6090; }
+  .popup-info:hover { background: #3a6090; color: white; }
+  .legend { background: #1e2d3d; padding: 8px 12px; border-radius: 8px; border: 1px solid #3a5070; max-height: 280px; overflow-y: auto; font-size: 12px; min-width: 150px; }
+  .legend h4 { color: #7dce82; margin-bottom: 6px; font-size: 13px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; opacity: 0.9; padding: 2px 4px; border-radius: 4px; }
+  .legend-item:hover { opacity: 1; background: rgba(255,255,255,0.05); }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.3); }
+  .legend-label { color: #bbccdd; }
+  .legend-cnt { color: #667788; margin-left: auto; padding-left: 8px; }
+  #resetBtn { background: #2d5a40; color: #7dce82; border: 1px solid #4CAF50; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  #resetBtn:hover { background: #4CAF50; color: white; }
+  #locateBtn { background: #1a3a5c; color: #7db8e8; border: 1px solid #3a70a0; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+  #locateBtn:hover { background: #3a70a0; color: white; }
+  #locateBtn.locating { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
+  .nearest-badge { background: #e67e22; color: white; font-size: 10px; padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+  .my-location-dot { width: 16px; height: 16px; background: #4a9eff; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 0 4px rgba(74,158,255,0.3); animation: locPulse 2s infinite; }
+  @keyframes locPulse { 0%,100% { box-shadow: 0 0 0 4px rgba(74,158,255,0.3) } 50% { box-shadow: 0 0 0 10px rgba(74,158,255,0.1) } }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: #1a2332; } ::-webkit-scrollbar-thumb { background: #3a5070; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div style="font-size:24px">🌳</div>
+  <h1>台北市松山區受保護樹木地圖</h1>
+  <span class="count" id="visibleCount">107 棵</span>
+  <span class="source">資料來源：台北市受保護樹木資訊平臺</span>
+</div>
+
+<div id="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-label">🔍</span>
+    <input id="search" type="text" placeholder="搜尋樹名、地址、編號…">
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">樹種：</span>
+    <select id="speciesFilter">
+      <option value="">全部樹種</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <span class="ctrl-label">里別：</span>
+    <select id="villageFilter">
+      <option value="">全部里別</option>
+    </select>
+  </div>
+  <button id="resetBtn">↺ 重設</button>
+  <button id="locateBtn">📍 定位最近的樹</button>
+</div>
+
+<div id="map"></div>
+
+<div id="stats">
+  <span id="statVisible">顯示：107 棵</span>
+  <span id="statSpecies">樹種：— 種</span>
+  <span id="statVillage">里別：—</span>
+  <span style="margin-left:auto; color:#4a6070">台北市松山區｜共 107 棵受保護樹木</span>
+</div>
+
+<script>
+// ── 全部 107 棵樹資料 ──────────────────────────────────────────────────────
+// 格式: [code, speciesName, speciesEnName, villageName, address, lat, lng, envDescription]
+const TREES_RAW = [
+  ["4796","白千層","Cajuput Tree","中正里","慶城街18號",25.053302,121.545309,"該樹位松山區慶城街18號前方，樹穴周圍包圍木座椅及欄杆，根領及主幹基部有不規則隆起，主幹通直生長，樹冠生長開闊，生長勢良好。"],
+  ["4761","菩提樹","Botree","三民里","三民路137號前",25.06034,121.563187,"該樹位松山區三民路137號前人行道上之花台內，公園處編號SS0560031010，主幹粗壯，樹木整體生長勢尚可。"],
+  ["4672","榕","Banyan","中正里","慶城街16巷(慶城公園)",25.052979,121.546697,"該樹位松山區慶城公園，坐落東南角人行道旁花圃內，公園處編號SS0115000017，樹冠枝葉茂密，主幹具多個分岔，樹木整體生長勢良好。"],
+  ["4673","榕","Banyan","中正里","慶城街16巷(慶城公園)",25.052978,121.546463,"該樹位松山區慶城公園，坐落南側鄰人行道之花圃內，公園處編號SS0115001110，樹冠枝葉茂密，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4664","榕","Banyan","精忠里","敦化北路201號前人行道上",25.056336,121.549304,"該樹位松山區敦化北路201號前人行道上，公園處編號SS0304021048，樹冠枝葉茂密，冠幅寬闊，主幹粗壯，根系具浮根情形，樹木整體生長勢良好。"],
+  ["4520","榕","Banyan","新益里","三民公園",25.063275,121.567916,"該樹位松山區三民公園溜冰場西北側圓形花台內，公園處編號SS0185101043，冠幅寬闊，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4521","榕","Banyan","新益里","三民公園",25.063229,121.567901,"該樹位松山區三民公園溜冰場西側圓形花台內，公園處編號SS0185101044，冠幅寬闊，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4299","菩提樹","Botree","精忠里","敦化北路199巷",25.057169,121.551057,"該樹位松山區敦化北路199巷，坐落台北市立圖書館民生分館西北角機車停車場出入口人行道上，公園處行道樹編號SS0300499024，樹冠枝葉茂密，主幹粗壯，樹木整體生長勢良好。"],
+  ["4034","黑板樹","Palimara Alstonia","東榮里","民權公園停車場C入口處西側",25.06209,121.5592,"該樹位松山區民權公園停車場C入口處西側，樹木整體生長勢尚可。"],
+  ["4035","榕","Banyan","新益里","三民公園撫遠街300巷靠近新東街口",25.06081,121.56564,"該樹位松山區三民公園撫遠街300巷靠近新東街口，樹木整體生長勢尚可。"],
+  ["4036","白千層","Cajuput Tree","介壽里","民生公園民生東路五段36巷4弄20號停車格旁",25.05775,121.55817,"該樹位松山區民生公園，坐落民生東路五段36巷4弄20號對面，樹冠枝葉茂密，主幹粗壯，略向西側偏斜生長，樹木整體生長勢良好。"],
+  ["4037","白千層","Cajuput Tree","介壽里","民生公園民生東路五段36巷8弄17號停車格旁",25.05718,121.55856,"該樹位松山區民生公園民生東路五段36巷8弄17號停車格旁，現已受高強度截剪，樹木整體生長勢尚可。經本市樹保委員112年12月21日現場確認，該樹因基部腐朽有傾倒風險，且移植可能性不大，為維護公共安全，原則同意解除列管，辦理解除列管程序中。"],
+  ["4038","白千層","Cajuput Tree","介壽里","民生公園民生東路五段36巷8弄23號停車格旁",25.05715,121.55825,"該樹位松山區民生公園，坐落民生東路五段36巷8弄23號對面，樹冠枝葉茂密，主幹粗壯，樹木整體生長勢良好。"],
+  ["4042","榕","Banyan","富錦里","富民生態公園民生東路五段177巷8弄6號對面",25.0601,121.56502,"該樹位松山區富民生態公園民生東路五段177巷8弄6號對面，樹木整體生長勢尚可。"],
+  ["4055","榕","Banyan","新東里","觀山河濱公園",25.059016,121.570234,"該樹位松山區觀山河濱公園，樹木整體生長勢尚可。"],
+  ["4056","榕","Banyan","新東里","觀山河濱公園",25.058934,121.570244,"該樹位松山區觀山河濱公園，樹木整體生長勢尚可。"],
+  ["3851","白千層","Cajuput Tree","精忠里","民生東路4段97巷2弄9號",25.05853,121.552647,"該樹位民生東路4段97巷2弄9號，公園處行道樹編號：SS0141484007"],
+  ["3854","榕","Banyan","精忠里","民生東路4段97巷6弄21號",25.059396,121.553265,"該樹位民生東路4段97巷6弄21號，公園處行道樹編號：SS0141482016"],
+  ["3855","榕","Banyan","中正里","敦化北路100號",25.052653,121.548651,"該樹位敦化北路100號，公園處行道樹編號：SS0304031086"],
+  ["3856","榕","Banyan","民有里","民權東路3段106巷3弄25號對面",25.061426,121.546045,"該樹位民權東路3段106巷3弄25號對面，公園處行道樹編號：SS0294091025"],
+  ["3857","榕","Banyan","新東里","撫遠街234號前安全島往南第3株",25.059686,121.568015,"該樹位撫遠街234號前安全島往南第3株，公園處行道樹編號：SS0660011162"],
+  ["3858","榕","Banyan","新益里","富錦街569號對面",25.062104,121.566977,""],
+  ["3770","樟","Camphor Tree","精忠里","富錦街107巷與富錦街77巷2弄間空地內",25.060707,121.552588,"該樹位松山區富錦街107巷，敦北公園南側之建築基地內，樹木坐落基地東側出入口旁，樹冠枝葉茂密，冠幅寬闊，主幹具2個分岔，樹木整體生長勢良好。"],
+  ["3771","榕","Banyan","精忠里","富錦街107巷旁停車場內",25.06111,121.552187,"該樹位松山區富錦街107巷，敦北公園南側之建築基地內，樹木坐落基地東北角，樹冠枝葉茂密，冠幅寬闊，主幹具大量氣生根融倂，根系有浮根情形，樹木整體生長勢良好。"],
+  ["3772","榕","Banyan","精忠里","敦北公園",25.06082,121.55108,"該樹位松山區敦北公園內，坐落近富錦街77巷側之步道旁，樹木原為白千層，後遭榕樹纏勒，現白千層已枯死，榕樹部分樹冠枝葉茂密，樹木整體生長勢良好。"],
+  ["3773","黃葛樹","Big-leaved Fig","精忠里","敦北公園",25.06042,121.55116,"該樹位松山區敦北公園內，坐落近富錦街77巷側之步道旁，樹木整體生長勢良好。"],
+  ["3774","白千層","Cajuput Tree","精忠里","敦北公園",25.0604,121.55109,"該樹位松山區敦北公園內，坐落近富錦街77巷側之步道旁，樹冠枝葉茂密，主幹具2個主要分岔，樹木整體生長勢良好。"],
+  ["3682","印度橡膠樹","Indiarubber fig","復建里","光復南路32巷16弄與32巷交叉口",25.0465,121.55668,"該樹位松山區幸福農場基地內，坐落基地北側緊鄰光復南路32巷，樹冠枝葉茂密，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["3733","榕","Banyan","美仁里","松山區八德路3段12巷對面(臺北田徑場八德路出入口旁綠帶)",25.048628,121.550973,"該樹位松山區城市舞台西北角之綠地內，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["3734","榕","Banyan","美仁里","松山區八德路3段12巷對面(臺北田徑場八德路出入口旁綠帶)",25.048376,121.550743,"該樹位松山區台北田徑場八德路側停車場出入口東側綠地內，冠幅寬闊，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["3735","榕","Banyan","美仁里","松山區八德路3段12巷對面(臺北田徑場八德路出入口旁綠帶)",25.048506,121.550784,"該樹位松山區城市舞台西北角之綠地內，冠幅寬闊，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["3367","白千層","Cajuput Tree","精忠里","松山區民生東路四段97巷6弄4號對面(精忠公園)",25.05931,121.552291,"該樹位松山區精忠公園南側人行道上，坐落民生東路四段97巷6弄4號對面，主幹具多個分岔，樹木整體生長勢尚可。"],
+  ["3493","白千層","Cajuput Tree","介壽里","民生東路五段36巷8弄58號前",25.057247,121.560246,"該樹位民生東路五段36巷8弄58號前，行道樹樹籍編碼：SS0141588049"],
+  ["3494","榕","Banyan","東榮里","民生東路五段27巷7弄口旁",25.059708,121.556704,"該樹位民生東路五段27巷7弄口旁，行道樹樹籍編碼：SS0141581005"],
+  ["3495","黑板樹","Palimara Alstonia","新東里","民生東路五段231號前安全島",25.059183,121.567451,"該樹位民生東路五段231號前安全島，行道樹樹籍編碼：SS0141512120"],
+  ["3497","白千層","Cajuput Tree","介壽里","民生東路五段36巷8弄64號前",25.057261,121.560496,"該樹位民生東路五段36巷8弄64號前，行道樹樹籍編碼：SS0141588056"],
+  ["3498","白千層","Cajuput Tree","介壽里","民生東路五段36巷8弄30號前",25.057116,121.558654,"該樹位民生東路五段36巷8弄30號前，行道樹樹籍編碼：SS0141588033"],
+  ["3499","榕","Banyan","東榮里","民生東路五段27巷口第1株",25.058547,121.556457,"該樹位民生東路五段27巷口第1株，行道樹樹籍編碼：SS0141581020"],
+  ["3501","榕","Banyan","介壽里","民生東路五段與36巷8弄口第1株",25.056967,121.557199,"該樹位民生東路五段與36巷8弄口第1株，行道樹樹籍編碼：SS0141586030"],
+  ["3502","榕","Banyan","精忠里","民生東路四段6弄口旁",25.056745,121.552913,"該樹位民生東路四段6弄口旁，行道樹樹籍編碼：SS0141489008"],
+  ["3503","白千層","Cajuput Tree","精忠里","民生東路四段97巷4弄1號前",25.0589,121.55216,"該樹位民生東路四段97巷4弄1號前，行道樹樹籍編碼：SS0141483002"],
+  ["3504","白千層","Cajuput Tree","精忠里","民生東路四段97巷2弄22號前",25.058541,121.553493,"該樹位民生東路四段97巷2弄22號前，行道樹樹籍編碼：SS0141484060"],
+  ["3506","白千層","Cajuput Tree","精忠里","民生東路四段97巷2弄16號前",25.0585,121.553052,"該樹位民生東路四段97巷2弄16號前，行道樹樹籍編碼：SS0141484052"],
+  ["3507","白千層","Cajuput Tree","精忠里","民生東路四段97巷4弄17號前",25.05898,121.553115,"該樹位民生東路四段97巷4弄17號前，行道樹樹籍編碼：SS0141483018"],
+  ["3508","白千層","Cajuput Tree","精忠里","民生東路四段97巷4弄19號前",25.058575,121.553133,"該樹位民生東路四段97巷2弄19號前，行道樹樹籍編碼：SS0141484023"],
+  ["3509","榕","Banyan","中正里","南京東路三段338巷內,與敦化北路50巷交叉口前",25.05044,121.547442,"該樹位南京東路三段338巷內，敦化北路50巷交叉口前，行道樹樹籍編碼：SS0121391022"],
+  ["3510","榕","Banyan","新益里","富錦街581巷1號旁",25.06264,121.567114,"該樹位富錦街581巷1號旁，行道樹樹籍編碼：SS0580051214"],
+  ["3511","榕","Banyan","新益里","富錦街537號",25.06136,121.565768,"該樹位富錦街537號，行道樹樹籍編碼：SS0580051188"],
+  ["3513","榕","Banyan","民福里","復興北路497號",25.06529,121.544427,"該樹位復興北路497號，行道樹樹籍編碼：SS0294021010"],
+  ["3514","樟","Camphor Tree","精忠里","敦化北路201號台塑大樓對面",25.056294,121.549114,"該樹位敦化北路201號台塑大樓對面，行道樹樹籍編碼：SS0304013102"],
+  ["3483","樟","Camphor Tree","敦化里","敦化南路一段3號對面安全島",25.047519,121.549105,"該樹位敦化南路一段3號對面安全島，行道樹樹籍編碼：SS0303014008"],
+  ["3440","榕","Banyan","介壽里","新中街4巷15號前",25.057733,121.561223,"該樹位新中街4巷15號前，行道樹樹籍編碼：SS0630085012"],
+  ["3434","白千層","Cajuput Tree","東榮里","新中街12-1和12-3號間(民生東路5段69巷4弄口對面)",25.060087,121.560454,"該樹位新中街12-1和12-3號間(民生東路5段69巷4弄口對面)，行道樹樹籍編碼：SS0630021028"],
+  ["3432","榕","Banyan","莊敬里","撫遠街394巷25號側邊",25.064845,121.564596,"該樹位松山區撫遠街394巷25號旁人行道，樹木位花台內，樹冠枝葉茂密，冠幅寬闊，主幹具大量氣生根融併，樹木整體生長勢良好。，行道樹樹籍編碼：SS0151581010"],
+  ["3515","樟","Camphor Tree","精忠里","敦化北路與民權東路口島頭第1株，敦北公園對面",25.061268,121.550861,"該樹位敦化北路與民權東路口島頭第1株,敦北公園對面，行道樹樹籍編碼：SS0304014001"],
+  ["2938","白千層","Cajuput Tree","介壽里","松山區新中街與新中街6巷交叉口",25.058088,121.560633,"該樹位松山區新中街近新中街6巷之人行道上，棲地為單一植穴，樹冠枝葉茂密，樹木整體生長勢良好。"],
+  ["2382","樟","Camphor Tree","中正里","松山區敦化北路2號",25.04949,121.548418,"該樹位松山區敦化國小內，坐落新校舍東側之大型圓形花台內，冠幅寬闊，樹木整體生長勢良好。"],
+  ["2383","雀榕","Large-leaved Banyan","中正里","松山區敦化北路2號",25.049428,121.54858,"該樹位於敦化國小東側圍牆旁，樹冠枝葉茂密，樹體略向東側傾斜，主幹具氣生根融併，樹木整體生長勢良好。"],
+  ["1878","榕","Banyan","民福里","松山區民權東路三段103巷5弄171號斜對面",25.062716,121.547601,"該樹位松山區民權東路三段175巷西側之建築基地內，樹木坐落基地北側，樹冠枝葉茂密，冠幅寬闊，氣生根形成大量支持根，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["1879","榕","Banyan","精忠里","松山區敦化北路333巷12弄3號",25.058926,121.550504,"該樹位於松山區玉山金控第二總部大樓東南角綠地，與編號540號及541號樟樹相鄰，主幹具大量氣生根融併，樹冠其中一枝幹與840號枝幹交錯，根基部包覆過去建築的磚牆，樹木整體生長勢尚可。"],
+  ["1880","小葉南洋杉","Norfolk Island Pine","中華里","松山區敦化北路155巷76號面向市圖右側",25.054404,121.5514,"該樹位於臺北市立圖書館啟明分館前院草坪中央，樹況良好。"],
+  ["1881","小葉南洋杉","Norfolk Island Pine","中華里","松山區敦化北路155巷76號面向市圖左側",25.0543926,121.5513415,"該樹位於臺北市立圖書館啟明分館前院草坪中央，樹況良好。"],
+  ["2033","榕","Banyan","中華里","松山區敦化北路133號",25.053005,121.54946,"該樹中華開發金控總部大樓前方綠帶內，樹冠枝葉茂密，冠幅寬闊，具一大型枝條向東側延伸，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["2034","榕","Banyan","中華里","松山區敦化北路133號",25.052948,121.549456,"該樹中華開發金控總部大樓前方綠帶內，樹冠枝葉茂密，冠幅寬闊，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["2035","垂葉榕","Benjamin Tree","中華里","松山區敦化北路131號中華開發金控總部大樓南側",25.052352,121.549627,"該樹中華開發金控總部大樓南側植栽區，與2036相鄰。枝葉茂密，整體生長勢良好。"],
+  ["2036","垂葉榕","Benjamin Tree","中華里","松山區敦化北路131號中華開發金控總部大樓南側",25.052349,121.549529,"該樹中華開發金控總部大樓南側植栽區，與2035相鄰，整體生長勢尚可。"],
+  ["1688","牛樟","Stout Camphor Tree","松基里","興安街174巷旁(松基公園內)",25.055669,121.545875,"該樹位於松基公園內，原有主幹已腐朽折斷，現有多支向上生長枝條取代。"],
+  ["1690","鳳凰木","Flamboyanttree","松基里","興安街174巷旁(松基公園內)",25.055459,121.545116,"該樹位於松基公園內，樹體高大，於1.6m處分叉兩主幹，整體樹勢受四周大樹及旁建築物影響往上伸展。"],
+  ["1461","榕","Banyan","美仁里","敦化北路1號(臺北田徑場八德路出入口旁)",25.048333,121.550729,"該樹位松山區台北田徑場八德路側停車場出入口旁，樹冠枝葉茂密，冠幅寬闊，氣生根生長旺盛，主幹並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["526","榕","Banyan","民福里","民權東路三段211號",25.061871,121.5501,"該樹位松山區臺北市政府水利工程處高灘地東區管理站西南角圍牆旁，樹冠枝葉茂密，冠幅寬闊，主幹具多個分岔，並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["552","榕","Banyan","新益里","三民公園",25.063111,121.568087,"該樹位於三民公園內溜冰場入口之西南邊靠近涼亭，其樹冠生長茂密。"],
+  ["531","朴樹","Chinese Hackberry","東勢里","健康路110號機車行旁",25.05343,121.555442,"該樹位松山區健康路110號品展車業公司大門東側，樹體緊鄰圍牆，主幹受建築遮雨棚所圍繞，樹冠枝葉茂密，冠幅寬闊，樹木整體生長勢良好。"],
+  ["532","流蘇","Chinese Fringe-tree","鵬程里","健康路313號",25.054468,121.566143,"該樹位松山區健康公宅前綠地內，樹冠枝葉茂密，主幹自基部分成三個主要分岔，樹木生長狀況良好，據前屋主劉先生敘述，其於1970年從臺灣大學帶回許多小樹苗栽種在自宅的圍牆內，後僅剩流蘇及森氏紅淡比欣欣向榮，並於興建公營出租住宅時採原地保留做為當地景觀樹木。"],
+  ["527","烏桕","Chinese  Tallow  Tree","復建里","光復南路22巷16弄3號",25.04688,121.5565,"該樹位於松山區光復南路22巷與光復南路32巷16弄口之空地上，樹冠枝葉茂密，主幹南側基部具一個大型樹洞，外側現以人工樹皮覆蓋，樹木周邊設有大型金屬支架，整體生長情況良好。"],
+  ["537","白千層","Cajuput Tree","精忠里","富錦街77巷軍營門口對面，敦化北路、民權東路口敦北公園內",25.06071,121.55119,"該樹位松山區敦北公園東側，鄰近富錦街77巷，編號537號受保護樹立牌位該樹南側，樹木生長勢尚可，主幹具三個分岔，整體樹冠偏向東側生長，根系有明顯浮根情形。"],
+  ["538","樟","Camphor Tree","中華里","中華開發金控總部前分隔島",25.052766,121.54907,"該樹位敦化北路中央分隔島，樹木生長狀況良好。行道樹樹籍編碼：SS0304014198。此區行道樹多為民國60年代所栽植之樟樹。"],
+  ["542","榕","Banyan","精忠里","敦化北路333巷12弄3號西側",25.059359,121.550185,"該樹位於松山區玉山金控第二總部大樓西側綠地，棲地周邊鋪設有松樹皮，樹冠枝葉茂密，主幹具大量氣生根融併，樹木整體生長狀況良好。"],
+  ["543","榕","Banyan","精忠里","敦化北路333巷12弄3號西側",25.059279,121.55015,"該樹位於松山區玉山金控第二總部大樓西側綠地，棲地周邊鋪設有松樹皮，樹冠枝葉茂密，氣生根生長旺盛，主幹為雙主幹，具大量氣生根融併，樹木整體生長狀況良好。"],
+  ["548","樟","Camphor Tree","美仁里","臺北田徑場對面安全島",25.04938,121.549054,"臺北田徑場對面安全島，此樹較靠近中間之迴轉道。行道樹樹籍編碼：SS0304014250"],
+  ["550","榕","Banyan","新益里","三民公園",25.063303,121.568056,"該樹位於三民公園內溜冰場入口之北側靠近民權東路五段，其樹幹多分枝，樹冠生長茂密。"],
+  ["551","榕","Banyan","新益里","三民公園",25.063127,121.567915,"該樹位於三民公園內溜冰場入口之東南邊，其樹冠生長茂密。"],
+  ["513","茄苳","Autumn Maple Tree","慈佑里","松山國民小學",25.050589,121.579142,"該樹位於松山區松山國小操場南側，樹冠枝葉茂密，樹木整體生長勢良好。"],
+  ["522","榕","Banyan","民福里","民權東路三段191巷32號庭院",25.063746,121.546552,"該樹位松山區民權東路三段191巷32號庭院內，樹冠枝葉茂密，冠幅寬闊，樹木整體生長勢良好。"],
+  ["523","榕","Banyan","民福里","民權東路三段211號",25.061816,121.550301,"該樹位松山區臺北市政府水利工程處高灘地東區管理站南側圍牆旁，樹冠枝葉茂密，冠幅寬闊，主幹具大量氣生根融併，下方枝幹遭修剪，樹木整體生長勢良好。"],
+  ["524","榕","Banyan","民福里","民權東路三段211號",25.061847,121.550422,"該樹位松山區臺北市政府水利工程處高灘地東區管理站東南角圍牆旁，樹冠枝葉茂密，冠幅寬闊，主幹具多個分岔，並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["525","榕","Banyan","民福里","民權東路三段211號",25.061983,121.550234,"該樹位松山區臺北市政府水利工程處高灘地東區管理站西南角圍牆旁，樹冠枝葉茂密，冠幅寬闊，主幹具多個分岔，並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["530","樟","Camphor Tree","美仁里","臺北小巨蛋",25.050652,121.549083,"樹位於臺北小巨蛋前中央安全島內，其側邊有一變電箱，樹木生長狀況良好。行道樹樹籍編碼：SS0304014229"],
+  ["533","森氏紅淡比","Mori Cleyera","鵬程里","健康路313號",25.05446,121.56606,"該樹位健康路313號健康公宅前綠地內，主幹自基部分成兩個主要分岔，現東側分岔已遭切除，樹木生長狀況尚可。"],
+  ["514","榕","Banyan","慈佑里","松山國民小學",25.05129,121.579312,"該樹位松山區松山國小北側圍牆內，樹冠枝葉茂密，主幹具大量氣生根融併，樹木生長勢良好。"],
+  ["516","刺桐","Variegated Coralnean","慈佑里","松山國民小學",25.050296,121.578761,"該樹位於松山區松山國小南棟校舍南側，臨八德路四段，樹冠枝葉茂密，冠幅寬闊，主幹及粗枝因具多處腐朽，現已透過外科手術碳化，樹體周邊並設有金屬支架支撐，樹木整體生長勢良好。"],
+  ["517","榕","Banyan","慈佑里","松山國民小學西側人行道",25.050362,121.577794,"該樹位松山國民小學西側人行道旁花台內，樹木生長勢尚可，已有100多年的歷史。行道樹樹籍編碼：SS0100491035。"],
+  ["536","榕","Banyan","東榮里","富錦街372號旁(民生東路五段69巷4弄間)富錦三號公園內",25.060233,121.558794,"該樹位富錦三號公園內，主幹有藤蔓包覆，整體樹況良好。根據附近居民表示1970年搬來時該樹就已經存在。"],
+  ["540","樟","Camphor Tree","精忠里","敦化北路333巷12弄3號",25.058957,121.550526,"該樹位於松山區玉山金控第二總部大樓東南角綠地，與編號541號樟樹及1879號榕樹相鄰，主幹為雙主幹，樹木生長狀況良好。"],
+  ["541","樟","Camphor Tree","精忠里","敦化北路333巷12弄3號",25.05894,121.55045,"該樹位於松山區玉山金控第二總部大樓東南角綠地，與編號540號樟樹及1879號榕樹相鄰，樹木生長勢良好。"],
+  ["518","榕","Banyan","慈佑里","松山國民小學西側人行道",25.050472,121.577774,"該樹位松山國民小學西側人行道旁花台內，樹木生長勢尚可，已有100多年的歷史。行道樹樹籍編碼：SS0100491034"],
+  ["546","樟","Camphor Tree","美仁里","臺北田徑場對面安全島",25.049789,121.549063,"該樹位臺北田徑場對面安全島，此樹較靠近中間之迴轉道，樹木生長狀況良好。行道樹樹籍編碼：SS0304014247"],
+  ["547","樟","Camphor Tree","美仁里","臺北田徑場對面安全島",25.049272,121.549124,"該樹位臺北田徑場對面安全島，樹木生長狀況良好。行道樹樹籍編碼：SS0304014251"],
+  ["544","榕","Banyan","精忠里","敦化北路333巷12弄3號西側",25.059109,121.550064,"該樹位於松山區玉山金控第二總部大樓西側綠地，氣生根生長旺盛，主幹具大量氣生根融併，113年罹患褐根病，並進行救治作業。"],
+  ["545","樟","Camphor Tree","美仁里","臺北田徑場對面安全島",25.048832,121.54909,"該樹位臺北田徑場對面安全島，周圍有變電箱，樹木生長狀況良好。行道樹樹籍編碼：SS0304014262"],
+  ["4158","榕","Banyan","莊敬里","撫遠街389巷29號",25.06496,121.56754,"該樹位松山區撫遠公園東北角，樹冠枝葉茂密，冠幅寬闊，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4159","榕","Banyan","莊敬里","撫遠街389巷29號",25.0645,121.5672,"該樹位松山區撫遠公園東側步道旁，樹冠枝葉茂密，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4160","榕","Banyan","莊敬里","撫遠街389巷29號",25.06402,121.56689,"該樹位松山區撫遠公園南側，坐落撫遠街367巷對面，樹冠枝葉茂密，冠幅寬闊主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4161","榕","Banyan","莊敬里","撫遠街389巷29號",25.06426,121.56699,"該樹位松山區撫遠公園南側，坐落撫遠街369巷對面，樹冠枝葉茂密，冠幅寬闊主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4162","榕","Banyan","莊敬里","撫遠街389巷29號",25.06463,121.56707,"該樹位松山區撫遠公園中央，樹冠枝葉茂密，冠幅寬闊，主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4163","榕","Banyan","莊敬里","撫遠街389巷29號",25.06434,121.56697,"該樹位松山區撫遠公園南側，坐落撫遠街369巷對面，樹冠枝葉茂密，主幹具多個分岔，並具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4164","榕","Banyan","莊敬里","撫遠街389巷29號",25.06403,121.56694,"該樹位松山區撫遠公園南側，坐落撫遠街367巷對面，樹冠枝葉茂密，冠幅寬闊主幹具大量氣生根融併，樹木整體生長勢良好。"],
+  ["4165","榕","Banyan","莊敬里","撫遠街389巷29號",25.06441,121.56682,"該樹位松山區撫遠公園西側，坐落撫遠街379巷對面，樹冠枝葉茂密，並具大量氣生根融併，樹木整體生長勢良好。"],
+];
+
+// 樹種顏色對應
+const SPECIES_COLORS = {
+  "榕":        "#4CAF50",
+  "白千層":    "#FF9800",
+  "樟":        "#8BC34A",
+  "菩提樹":    "#00BCD4",
+  "黑板樹":    "#9C27B0",
+  "垂葉榕":    "#66BB6A",
+  "小葉南洋杉":"#26C6DA",
+  "雀榕":      "#A5D6A7",
+  "牛樟":      "#795548",
+  "鳳凰木":    "#F44336",
+  "朴樹":      "#FFCA28",
+  "流蘇":      "#EC407A",
+  "烏桕":      "#AB47BC",
+  "茄苳":      "#EF5350",
+  "刺桐":      "#FF7043",
+  "黃葛樹":    "#D4E157",
+  "印度橡膠樹":"#26A69A",
+  "森氏紅淡比":"#78909C",
+};
+function getColor(sp) { return SPECIES_COLORS[sp] || "#aabbcc"; }
+
+function createMarkerIcon(color, isNearest=false) {
+  const size = isNearest ? 18 : 13;
+  const border = isNearest ? "3px solid #fff" : "2px solid rgba(255,255,255,0.6)";
+  const shadow = isNearest ? "0 0 0 3px rgba(255,255,255,0.4), 0 2px 8px rgba(0,0,0,0.5)" : "0 1px 4px rgba(0,0,0,0.4)";
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:${border};box-shadow:${shadow};"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -size/2-2],
+  });
+}
+
+// 初始化地圖
+const map = L.map('map', { center: [25.057, 121.557], zoom: 15 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap contributors © CARTO',
+  maxZoom: 19,
+}).addTo(map);
+
+// 建立物件陣列
+const trees = TREES_RAW.map(t => ({
+  code: t[0], species: t[1], speciesEn: t[2],
+  village: t[3], address: t[4],
+  lat: t[5], lng: t[6], desc: t[7],
+}));
+
+// 建立 markers
+let markers = [];
+let currentMarkers = [];
+let myLocMarker = null;
+let nearestMarker = null;
+
+function buildPopup(t, isNearest=false) {
+  const gmaps = `https://www.google.com/maps/search/?api=1&query=${t.lat},${t.lng}`;
+  const infoUrl = `https://eculture.gov.taipei/trees/zh-tw/tree/${t.code}`;
+  const nearBadge = isNearest ? '<span class="nearest-badge">📍 最近</span>' : '';
+  const descHtml = t.desc ? `<div class="popup-desc">${t.desc}</div>` : '';
+  return `
+    <div class="popup-title">${t.species} ${nearBadge}</div>
+    <div class="popup-code">編號：${t.code}　 ${t.village}</div>
+    <div class="popup-sci">${t.speciesEn}</div>
+    <div class="popup-row"><span class="popup-key">📍 地址</span><span class="popup-val">${t.address}</span></div>
+    <div class="popup-row"><span class="popup-key">🌐 座標</span><span class="popup-val">${t.lat.toFixed(6)}, ${t.lng.toFixed(6)}</span></div>
+    ${descHtml}
+    <div class="popup-links">
+      <a href="${gmaps}" target="_blank" class="popup-gmaps">📍 Google Maps</a>
+      <a href="${infoUrl}" target="_blank" class="popup-info">🔗 樹木資訊</a>
+    </div>`;
+}
+
+trees.forEach(t => {
+  const color = getColor(t.species);
+  const m = L.marker([t.lat, t.lng], { icon: createMarkerIcon(color) })
+    .bindPopup(buildPopup(t), { maxWidth: 340 });
+  m._treeData = t;
+  markers.push(m);
+  m.addTo(map);
+});
+currentMarkers = [...markers];
+
+// ── 圖例 ──────────────────────────────────────────────────────────────────
+const speciesCounts = {};
+trees.forEach(t => { speciesCounts[t.species] = (speciesCounts[t.species]||0) + 1; });
+const sortedSpecies = Object.entries(speciesCounts).sort((a,b) => b[1]-a[1]);
+
+const legend = L.control({ position: 'topright' });
+legend.onAdd = function() {
+  const div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = '<h4>樹種</h4>';
+  sortedSpecies.forEach(([sp, cnt]) => {
+    const color = getColor(sp);
+    div.innerHTML += `
+      <div class="legend-item" data-species="${sp}">
+        <div class="legend-dot" style="background:${color}"></div>
+        <span class="legend-label">${sp}</span>
+        <span class="legend-cnt">${cnt}</span>
+      </div>`;
+  });
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+  // 點擊圖例項目篩選
+  div.querySelectorAll('.legend-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const sp = item.dataset.species;
+      const sel = document.getElementById('speciesFilter');
+      sel.value = sel.value === sp ? '' : sp;
+      sel.dispatchEvent(new Event('change'));
+    });
+  });
+  return div;
+};
+legend.addTo(map);
+
+// ── 下拉選單填充 ──────────────────────────────────────────────────────────
+const speciesSel = document.getElementById('speciesFilter');
+sortedSpecies.forEach(([sp, cnt]) => {
+  speciesSel.innerHTML += `<option value="${sp}">${sp}（${cnt}棵）</option>`;
+});
+
+const villages = [...new Set(trees.map(t => t.village))].sort();
+const villageSel = document.getElementById('villageFilter');
+villages.forEach(v => { villageSel.innerHTML += `<option value="${v}">${v}</option>`; });
+
+// ── 篩選邏輯 ──────────────────────────────────────────────────────────────
+function applyFilters() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const sp = speciesSel.value;
+  const vl = villageSel.value;
+
+  // 移除所有 markers
+  currentMarkers.forEach(m => map.removeLayer(m));
+  currentMarkers = [];
+
+  markers.forEach(m => {
+    const t = m._treeData;
+    const matchQ = !q || t.species.includes(q) || t.address.toLowerCase().includes(q)
+                    || t.code.includes(q) || t.village.includes(q) || t.desc.toLowerCase().includes(q);
+    const matchSp = !sp || t.species === sp;
+    const matchVl = !vl || t.village === vl;
+    if (matchQ && matchSp && matchVl) {
+      m.addTo(map);
+      currentMarkers.push(m);
+    }
+  });
+
+  const n = currentMarkers.length;
+  document.getElementById('visibleCount').textContent = n + ' 棵';
+  document.getElementById('statVisible').textContent = '顯示：' + n + ' 棵';
+
+  const spSet = new Set(currentMarkers.map(m => m._treeData.species));
+  document.getElementById('statSpecies').textContent = '樹種：' + spSet.size + ' 種';
+
+  const vlSet = new Set(currentMarkers.map(m => m._treeData.village));
+  document.getElementById('statVillage').textContent = '里別：' + [...vlSet].join('、');
+
+  // 高亮圖例
+  document.querySelectorAll('.legend-item').forEach(item => {
+    item.style.opacity = (!sp || item.dataset.species === sp) ? '1' : '0.35';
+  });
+}
+
+document.getElementById('search').addEventListener('input', applyFilters);
+speciesSel.addEventListener('change', applyFilters);
+villageSel.addEventListener('change', applyFilters);
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('search').value = '';
+  speciesSel.value = '';
+  villageSel.value = '';
+  applyFilters();
+  map.setView([25.057, 121.557], 15);
+});
+
+// ── 定位最近的樹 ──────────────────────────────────────────────────────────
+document.getElementById('locateBtn').addEventListener('click', () => {
+  const btn = document.getElementById('locateBtn');
+  btn.classList.add('locating');
+  btn.textContent = '定位中…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.classList.remove('locating');
+    btn.innerHTML = '📍 定位最近的樹';
+    const { latitude: userLat, longitude: userLng } = pos.coords;
+
+    // 顯示我的位置
+    if (myLocMarker) map.removeLayer(myLocMarker);
+    myLocMarker = L.marker([userLat, userLng], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div class="my-location-dot"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8],
+      })
+    }).addTo(map).bindPopup('📍 你的位置').openPopup();
+
+    // 計算最近的樹
+    let nearest = null, minDist = Infinity;
+    currentMarkers.forEach(m => {
+      const t = m._treeData;
+      const d = Math.hypot(t.lat - userLat, t.lng - userLng);
+      if (d < minDist) { minDist = d; nearest = m; }
+    });
+
+    if (!nearest) return;
+    const t = nearest._treeData;
+    const color = getColor(t.species);
+
+    // 換圖示
+    if (nearestMarker) nearestMarker.setIcon(createMarkerIcon(getColor(nearestMarker._treeData.species)));
+    nearestMarker = nearest;
+    nearest.setIcon(createMarkerIcon(color, true));
+    nearest.setPopupContent(buildPopup(t, true));
+
+    map.setView([t.lat, t.lng], 17);
+    nearest.openPopup();
+  }, () => {
+    btn.classList.remove('locating');
+    btn.innerHTML = '📍 定位最近的樹';
+    alert('無法取得位置，請確認瀏覽器位置權限已開啟。');
+  });
+});
+
+// 初始統計
+applyFilters();
+</script>
+</body>
+</html>
