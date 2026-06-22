@@ -44,6 +44,9 @@
   .legend h4 { color: #7dce82; margin-bottom: 6px; font-size: 13px; }
   .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; cursor: pointer; opacity: 0.9; padding: 2px 4px; border-radius: 4px; }
   .legend-item:hover { opacity: 1; background: rgba(255,255,255,0.05); }
+  .legend-item.selected { background: rgba(125,206,130,0.18); outline: 1px solid #7dce82; }
+  .legend-clear { font-size: 11px; color: #ff9e9e; cursor: pointer; margin-left: 6px; font-weight: normal; }
+  .legend-clear:hover { color: #ff6b6b; }
   .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.3); }
   .legend-label { color: #bbccdd; }
   .legend-cnt { color: #667788; margin-left: auto; padding-left: 8px; }
@@ -1340,35 +1343,52 @@ trees.forEach(t => { speciesCounts[t.species] = (speciesCounts[t.species]||0) + 
 const sortedSpecies = Object.entries(speciesCounts).sort((a,b) => b[1]-a[1]);
 
 let legendDiv = null;
+const selectedSpecies = new Set();   // 已選樹種（可複選）
 
-function rebuildLegend(treesSubset, selectedSp) {
+function syncSpeciesDropdown() {
+  const sel = document.getElementById('speciesFilter');
+  if (sel) sel.value = selectedSpecies.size === 1 ? [...selectedSpecies][0] : '';
+}
+function toggleSpecies(sp) {           // 點選切換：未選則選取，已選則取消選取
+  if (selectedSpecies.has(sp)) selectedSpecies.delete(sp);
+  else selectedSpecies.add(sp);
+  syncSpeciesDropdown();
+  applyFilters();
+}
+
+function rebuildLegend(treesSubset, selectedSet) {
   if (!legendDiv) return;
   const cnt = {};
   treesSubset.forEach(t => { cnt[t.species] = (cnt[t.species]||0) + 1; });
+  const total = treesSubset.length;   // 樹木總數（目前檢視範圍）
   const sorted = Object.entries(cnt).sort((a,b) => b[1]-a[1]);
-  legendDiv.innerHTML = '<h4>樹種</h4>';
+  const hasSel = selectedSet && selectedSet.size > 0;
+  legendDiv.innerHTML = '<h4>樹種' + (hasSel ? ' <span class="legend-clear">✕ 清除</span>' : '') + '</h4>';
   sorted.forEach(([sp, n]) => {
     const color = getColor(sp);
-    const opacity = (!selectedSp || selectedSp === sp) ? '1' : '0.35';
-    legendDiv.innerHTML += `<div class="legend-item" data-species="${sp}" style="opacity:${opacity}">
+    const isSel = hasSel && selectedSet.has(sp);
+    const opacity = (!hasSel || isSel) ? '1' : '0.35';
+    legendDiv.innerHTML += `<div class="legend-item${isSel ? ' selected' : ''}" data-species="${sp}" style="opacity:${opacity}">
       <div class="legend-dot" style="background:${color}"></div>
       <span class="legend-label">${sp}</span>
-      <span class="legend-cnt">${n}</span></div>`;
+      <span class="legend-cnt">${n}/${total}</span></div>`;
   });
   legendDiv.querySelectorAll('.legend-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const sp = item.dataset.species;
-      const sel = document.getElementById('speciesFilter');
-      sel.value = sel.value === sp ? '' : sp;
-      sel.dispatchEvent(new Event('change'));
-    });
+    item.addEventListener('click', () => toggleSpecies(item.dataset.species));
+  });
+  const clr = legendDiv.querySelector('.legend-clear');
+  if (clr) clr.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectedSpecies.clear();
+    syncSpeciesDropdown();
+    applyFilters();
   });
 }
 
 const legend = L.control({ position: 'topright' });
 legend.onAdd = function() {
   legendDiv = L.DomUtil.create('div', 'legend');
-  rebuildLegend(trees, '');
+  rebuildLegend(trees, selectedSpecies);
   L.DomEvent.disableClickPropagation(legendDiv);
   L.DomEvent.disableScrollPropagation(legendDiv);
   return legendDiv;
@@ -1409,7 +1429,6 @@ rebuildVillageOptions('');
 function applyFilters() {
   const q  = document.getElementById('search').value.trim().toLowerCase();
   const di = document.getElementById('districtFilter').value;
-  const sp = speciesSel.value;
   const vl = document.getElementById('villageFilter').value;
 
   currentMarkers.forEach(m => map.removeLayer(m));
@@ -1419,7 +1438,7 @@ function applyFilters() {
     const t = m._treeData;
     const matchQ  = !q  || t.species.includes(q) || t.address.toLowerCase().includes(q) || t.code.includes(q) || t.village.includes(q) || t.desc.toLowerCase().includes(q);
     const matchDi = !di || t.district === di;
-    const matchSp = !sp || t.species === sp;
+    const matchSp = selectedSpecies.size === 0 || selectedSpecies.has(t.species);
     const matchVl = !vl || t.village === vl;
     if (matchQ && matchDi && matchSp && matchVl) {
       m.addTo(map); currentMarkers.push(m);
@@ -1442,20 +1461,37 @@ function applyFilters() {
     (!vl || t.village === vl) &&
     (!q  || t.species.includes(q) || t.address.toLowerCase().includes(q) || t.code.includes(q) || t.village.includes(q) || t.desc.toLowerCase().includes(q))
   );
-  rebuildLegend(legendTrees, sp);
+  rebuildLegend(legendTrees, selectedSpecies);
+}
+
+// 下拉選單作為單選捷徑，與圖例複選共用同一組 selectedSpecies
+speciesSel.addEventListener('change', function() {
+  selectedSpecies.clear();
+  if (this.value) selectedSpecies.add(this.value);
+  applyFilters();
+});
+
+// 切換行政區／里別時，移除在新範圍內已不存在的已選樹種
+function pruneSelectedSpecies(di, vl) {
+  const avail = new Set(trees.filter(t =>
+    (!di || t.district === di) && (!vl || t.village === vl)
+  ).map(t => t.species));
+  [...selectedSpecies].forEach(sp => { if (!avail.has(sp)) selectedSpecies.delete(sp); });
+  syncSpeciesDropdown();
 }
 
 document.getElementById('search').addEventListener('input', applyFilters);
-speciesSel.addEventListener('change', applyFilters);
 document.getElementById('villageFilter').addEventListener('change', function() {
   const di = document.getElementById('districtFilter').value;
   rebuildSpeciesOptions(di, this.value);
+  pruneSelectedSpecies(di, this.value);
   applyFilters();
 });
 
 document.getElementById('districtFilter').addEventListener('change', function() {
   rebuildVillageOptions(this.value);
   rebuildSpeciesOptions(this.value, '');
+  pruneSelectedSpecies(this.value, '');
   if (this.value && DISTRICT_CENTER[this.value]) {
     const [lat, lng, z] = DISTRICT_CENTER[this.value];
     map.setView([lat, lng], z);
@@ -1468,6 +1504,7 @@ document.getElementById('districtFilter').addEventListener('change', function() 
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('search').value = '';
   document.getElementById('districtFilter').value = '';
+  selectedSpecies.clear();
   speciesSel.value = '';
   rebuildVillageOptions('');
   rebuildSpeciesOptions('', '');
