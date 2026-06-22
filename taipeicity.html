@@ -23,6 +23,8 @@
   #search::placeholder { color: #556677; }
   #search:focus { outline: none; border-color: #4CAF50; }
   #map { flex: 1; }
+  /* 只對底圖圖磚加灰階，標記顏色不受影響 */
+  .leaflet-tile-pane { filter: grayscale(0.7) brightness(1.02); }
   #stats { background: #1e2d3d; padding: 6px 16px; font-size: 12px; color: #7899aa; display: flex; gap: 20px; flex-shrink: 0; border-top: 1px solid #2c3e50; }
   .leaflet-popup-content-wrapper { background: #1e2d3d; color: #dde; border: 1px solid #4CAF50; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
   .leaflet-popup-tip { background: #1e2d3d; }
@@ -1273,7 +1275,11 @@ const SPECIES_COLORS = {
   "銀杏": "#FFF176",
   "麵包樹": "#FFAB40",
 };
-function getColor(sp) { return SPECIES_COLORS[sp] || "#aabbcc"; }
+// 與 newTaipwicity.html 相同的雜湊配色（每種樹依名稱自動取色）
+function getColor(sp) {
+  let h = 0; for (let i = 0; i < sp.length; i++) h = (h * 31 + sp.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, ${55 + (h >> 3) % 25}%, ${48 + (h >> 6) % 14}%)`;
+}
 
 const DISTRICT_CENTER = {
   "松山區": [25.057, 121.557, 14],
@@ -1297,8 +1303,9 @@ function createMarkerIcon(color, isNearest=false) {
 }
 
 const map = L.map('map', { center: [25.057, 121.540], zoom: 13 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap contributors © CARTO', maxZoom: 19,
+L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">內政部國土測繪中心</a>',
+  maxZoom: 20
 }).addTo(map);
 
 const trees = TREES_RAW.map(t => ({
